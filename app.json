@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "TodoApp",
-    "slug": "TodoApp",
+    "name": "DayMark",
+    "description": "Tasks, notes, folders and priority reminders in one calm planner.",
+    "slug": "storemyweb",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,13 +12,19 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "permissions": [
+        "SCHEDULE_EXACT_ALARM",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/android-icon-foreground-padded.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.storemywebsteam.daymark"
     },
     "web": {
       "output": "static",
@@ -28,15 +35,64 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#2B1A52",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 112,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#141217",
+            "image": "./assets/images/splash-icon.png"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#6750A4",
+          "defaultChannel": "task-reminders"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow DayMark to add tasks to your calendar.",
+          "writeOnlyCalendarPermission": "Allow DayMark to add tasks to your calendar."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow DayMark to attach a photo to a note.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ],
+            "enableBundleCompression": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "34580738-ae2b-440a-8ec7-cfc4fe0c8de0"
+      }
+    },
+    "owner": "storemywebs-team"
   }
 }
