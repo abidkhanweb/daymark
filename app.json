@@ -2,7 +2,7 @@
   "expo": {
     "name": "DayMark",
     "description": "Tasks, notes, folders and priority reminders in one calm planner.",
-    "slug": "storemyweb",
+    "slug": "daymark-demo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -72,10 +72,7 @@
         "expo-build-properties",
         {
           "android": {
-            "buildArchs": [
-              "armeabi-v7a",
-              "arm64-v8a"
-            ],
+            "buildArchs": ["armeabi-v7a", "arm64-v8a"],
             "enableBundleCompression": true,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true
