@@ -17,6 +17,7 @@ expo-env.d.ts
 .local-tools/
 /*-qr.png
 /assets/images/*-old.png
+/assets/expo.icon/
 *.orig.*
 *.jks
 *.p8
