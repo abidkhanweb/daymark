@@ -11,6 +11,7 @@ export function migrateData(input: Partial<AppData>): AppData {
   const folderIds = new Set(folders.map((folder) => folder.id));
   return {
     profileName: input.profileName?.trim() ?? '',
+    profileNickname: input.profileNickname?.trim() ?? '',
     profileOnboardingComplete: input.profileOnboardingComplete ?? false,
     categories,
     folders,

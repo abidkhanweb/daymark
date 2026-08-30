@@ -29,7 +29,7 @@ type TaskStore = AppData & {
   addNote: (note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUri'>) => void;
   updateNote: (id: string, note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUri'>) => void;
   deleteNote: (id: string) => void;
-  setProfileName: (name: string) => void;
+  setProfile: (name: string, nickname: string) => void;
 };
 
 const Context = createContext<TaskStore | null>(null);
@@ -230,9 +230,10 @@ export function TaskProvider({ children }: PropsWithChildren) {
         notes: current.notes.filter((note) => note.id !== id),
       }));
     },
-    setProfileName: (name) => setData((current) => ({
+    setProfile: (name, nickname) => setData((current) => ({
       ...current,
       profileName: name.trim(),
+      profileNickname: nickname.trim(),
       profileOnboardingComplete: true,
     })),
   }), [data, hydrated, isDemo, setData]);

@@ -17,6 +17,7 @@ export function createDemoTaskData(): AppData {
   return {
     ...initialData,
     profileName: 'Alex',
+    profileNickname: 'alex001',
     profileOnboardingComplete: true,
     categories: initialData.categories.map((item) => ({ ...item })),
     folders: initialData.folders.map((item) => ({ ...item })),
@@ -37,14 +38,17 @@ export function createDemoTaskData(): AppData {
 
 export function createDemoExpenseData(): ExpenseData {
   return {
-    people: [
-      { id: 'demo-person-1', name: 'Rahul', createdAt: at(-20, 10) },
-      { id: 'demo-person-2', name: 'Priya', createdAt: at(-10, 12) },
+    accounts: [
+      { id: 'demo-person-1', name: 'Rahul', kind: 'person', createdAt: at(-20, 10) },
+      { id: 'demo-person-2', name: 'Priya', kind: 'person', createdAt: at(-10, 12) },
+      { id: 'demo-daily-1', name: 'Milkman', kind: 'daily', createdAt: at(-12, 8) },
     ],
     entries: [
-      { id: 'demo-entry-1', personId: 'demo-person-1', flow: 'given', paymentMethods: ['online'], amountPaise: 100000, occurredAt: at(-8, 14), note: 'Short-term help' },
-      { id: 'demo-entry-2', personId: 'demo-person-1', flow: 'received', paymentMethods: ['cash', 'online'], amountPaise: 50000, occurredAt: at(-2, 17), note: '₹200 cash + ₹300 online' },
-      { id: 'demo-entry-3', personId: 'demo-person-2', flow: 'given', paymentMethods: ['cash'], amountPaise: 75000, occurredAt: at(-3, 12), note: 'Shared booking' },
+      { id: 'demo-entry-1', accountId: 'demo-person-1', flow: 'given', paymentMethods: ['online'], amountPaise: 100000, occurredAt: at(-8, 14), note: 'Short-term help' },
+      { id: 'demo-entry-2', accountId: 'demo-person-1', flow: 'received', paymentMethods: ['cash', 'online'], amountPaise: 50000, occurredAt: at(-2, 17), note: '₹200 cash + ₹300 online' },
+      { id: 'demo-entry-3', accountId: 'demo-person-2', flow: 'given', paymentMethods: ['cash'], amountPaise: 75000, occurredAt: at(-3, 12), note: 'Shared booking' },
+      { id: 'demo-entry-4', accountId: 'demo-daily-1', flow: 'purchase', paymentMethods: [], amountPaise: 120000, occurredAt: at(-5, 8), note: 'Milk and curd' },
+      { id: 'demo-entry-5', accountId: 'demo-daily-1', flow: 'payment', paymentMethods: ['online'], amountPaise: 80000, occurredAt: at(-1, 19), note: '' },
     ],
   };
 }

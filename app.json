@@ -4,6 +4,13 @@
     "description": "Tasks, notes, folders and priority reminders in one calm planner.",
     "slug": "daymark-demo",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/34580738-ae2b-440a-8ec7-cfc4fe0c8de0",
+      "checkAutomatically": "NEVER"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "todoapp",

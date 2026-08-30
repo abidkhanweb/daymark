@@ -1,6 +1,7 @@
 import { styles } from '@/styles/screens/today.styles';
 import { useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -17,12 +18,14 @@ import type { Task } from "@/features/tasks/model";
 import { TaskCard } from "@/features/tasks/task-card";
 import { TaskForm } from "@/features/tasks/task-form";
 import { useTasks } from "@/features/tasks/task-store";
+import { canUseDemoMode, profileGreetingName } from "@/features/tasks/profile-utils";
 import { useAppTheme } from "@/hooks/use-app-theme";
+import { checkAndInstallUpdate } from "@/services/app-updates";
 
 export default function TodayScreen() {
   const colors = useAppTheme();
   const { isDemo, enterDemo, exitDemo } = useDemoMode();
-  const { tasks, folders, hydrated, profileName, profileOnboardingComplete, setProfileName, toggleTask, toggleSubtask } = useTasks();
+  const { tasks, folders, hydrated, profileName, profileNickname, profileOnboardingComplete, setProfile, toggleTask, toggleSubtask } = useTasks();
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -45,6 +48,7 @@ export default function TodayScreen() {
       )
     : 0;
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : now.getHours() < 21 ? "Good evening" : "Good night";
+  const greetingName = profileGreetingName(profileName, profileNickname);
   const openTask = (task: Task) => {
     setEditingTask(task);
     setShowForm(true);
@@ -64,7 +68,7 @@ export default function TodayScreen() {
                 MY DAY
               </Text>
               <Text numberOfLines={2} style={[styles.title, { color: colors.text }]}>
-                {greeting}{profileName ? `, ${profileName}` : ''}
+                {greeting}{greetingName ? `, ${greetingName}` : ''}
               </Text>
               <Text style={[styles.date, { color: colors.textSecondary }]}>
                 {new Date().toLocaleDateString([], {
@@ -165,32 +169,54 @@ export default function TodayScreen() {
       {showForm && <TaskForm task={editingTask} visible onClose={() => { setShowForm(false); setEditingTask(null); }} />}
       {hydrated && (!profileOnboardingComplete || showProfile) && <ProfileModal
         initialName={profileName}
+        initialNickname={profileNickname}
         firstRun={!profileOnboardingComplete}
         isDemo={isDemo}
         onClose={() => setShowProfile(false)}
-        onDemo={async () => {
+        onDemo={async (name, nickname) => {
           if (isDemo && !(await exitDemo())) return;
-          if (!isDemo) enterDemo();
+          if (!isDemo) {
+            setProfile(name, nickname);
+            enterDemo();
+          }
           setShowProfile(false);
         }}
-        onSave={(name) => { setProfileName(name); setShowProfile(false); }}
+        onSave={(name, nickname) => { setProfile(name, nickname); setShowProfile(false); }}
       />}
     </View>
   );
 }
 
-function ProfileModal({ initialName, firstRun, isDemo, onClose, onDemo, onSave }: { initialName: string; firstRun: boolean; isDemo: boolean; onClose: () => void; onDemo: () => void; onSave: (name: string) => void }) {
+function ProfileModal({ initialName, initialNickname, firstRun, isDemo, onClose, onDemo, onSave }: { initialName: string; initialNickname: string; firstRun: boolean; isDemo: boolean; onClose: () => void; onDemo: (name: string, nickname: string) => void; onSave: (name: string, nickname: string) => void }) {
   const colors = useAppTheme();
   const [name, setName] = useState(initialName);
-  const close = () => firstRun ? onSave('') : onClose();
+  const [nickname, setNickname] = useState(initialNickname);
+  const [updating, setUpdating] = useState(false);
+  const hasProfile = Boolean(name.trim() || nickname.trim());
+  const showDemo = isDemo || canUseDemoMode(nickname);
+  const close = () => firstRun ? onSave('', '') : onClose();
+  const installUpdate = async () => {
+    setUpdating(true);
+    try {
+      const result = await checkAndInstallUpdate();
+      if (result === 'current') Alert.alert('DayMark is up to date', 'You already have the latest available update.');
+      if (result === 'disabled') Alert.alert('Updates unavailable here', 'Use this button in the installed release APK, not Expo Go or development mode.');
+    } catch {
+      Alert.alert('Update failed', 'Check your internet connection and try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
   return <Modal transparent visible animationType="fade" onRequestClose={close}>
     <View style={styles.profileBackdrop}>
       <View style={[styles.profileDialog, { backgroundColor: colors.surface }]}>
         <View style={[styles.profileIcon, { backgroundColor: colors.primaryContainer }]}><AppIcon name="person" size={28} tintColor={colors.primary} /></View>
-        <View><Text style={[styles.profileTitle, { color: colors.text }]}>{firstRun ? 'Welcome to DayMark' : 'Your name'}</Text><Text style={[styles.profileText, { color: colors.textSecondary }]}>Add your name to personalize the daily greeting.</Text></View>
-        <TextInput autoFocus value={name} onChangeText={setName} onSubmitEditing={() => name.trim() && onSave(name)} placeholder="Your name" placeholderTextColor={colors.textSecondary} style={[styles.profileInput, { color: colors.text, borderColor: colors.outline }]} />
-        {!firstRun && <Pressable onPress={onDemo} style={[styles.profileDemo, { backgroundColor: colors.primaryContainer, borderColor: colors.primary }]}><AppIcon name={isDemo ? 'visibility-off' : 'visibility'} size={20} tintColor={colors.primary} /><View style={styles.profileDemoCopy}><Text style={[styles.profileDemoTitle, { color: colors.text }]}>{isDemo ? 'Exit demo mode' : 'Enter demo mode'}</Text><Text style={[styles.profileDemoText, { color: colors.textSecondary }]}>{isDemo ? 'Return to your personal data.' : 'Show sample data while keeping yours hidden.'}</Text></View><AppIcon name="chevron-right" size={20} tintColor={colors.primary} /></Pressable>}
-        <View style={styles.profileActions}><Pressable onPress={close}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{firstRun ? 'Skip' : 'Cancel'}</Text></Pressable><Pressable disabled={!name.trim()} onPress={() => onSave(name)} style={[styles.profileSave, { backgroundColor: colors.primary, opacity: name.trim() ? 1 : .45 }]}><Text style={styles.profileSaveText}>Save</Text></Pressable></View>
+        <View><Text style={[styles.profileTitle, { color: colors.text }]}>{firstRun ? 'Welcome to DayMark' : 'Your profile'}</Text><Text style={[styles.profileText, { color: colors.textSecondary }]}>Your nickname is shown in the greeting when provided; otherwise your name is used.</Text></View>
+        <TextInput autoFocus value={name} onChangeText={setName} placeholder="Name (optional)" placeholderTextColor={colors.textSecondary} style={[styles.profileInput, { color: colors.text, borderColor: colors.outline }]} />
+        <TextInput autoCapitalize="none" autoCorrect={false} value={nickname} onChangeText={setNickname} onSubmitEditing={() => hasProfile && onSave(name, nickname)} placeholder="Nickname (optional)" placeholderTextColor={colors.textSecondary} style={[styles.profileInput, { color: colors.text, borderColor: colors.outline }]} />
+        <Pressable disabled={updating} onPress={installUpdate} style={[styles.profileDemo, { backgroundColor: colors.surface, borderColor: colors.outline, opacity: updating ? .6 : 1 }]}><AppIcon name={updating ? 'sync' : 'system-update-alt'} size={20} tintColor={colors.primary} /><View style={styles.profileDemoCopy}><Text style={[styles.profileDemoTitle, { color: colors.text }]}>{updating ? 'Checking for update…' : 'Install latest update'}</Text><Text style={[styles.profileDemoText, { color: colors.textSecondary }]}>Download an available DayMark update and restart.</Text></View><AppIcon name="chevron-right" size={20} tintColor={colors.primary} /></Pressable>
+        {showDemo && <Pressable onPress={() => onDemo(name, nickname)} style={[styles.profileDemo, { backgroundColor: colors.primaryContainer, borderColor: colors.primary }]}><AppIcon name={isDemo ? 'visibility-off' : 'visibility'} size={20} tintColor={colors.primary} /><View style={styles.profileDemoCopy}><Text style={[styles.profileDemoTitle, { color: colors.text }]}>{isDemo ? 'Exit demo mode' : 'Enter demo mode'}</Text><Text style={[styles.profileDemoText, { color: colors.textSecondary }]}>{isDemo ? 'Return to your personal data.' : 'Show sample data while keeping yours hidden.'}</Text></View><AppIcon name="chevron-right" size={20} tintColor={colors.primary} /></Pressable>}
+        <View style={styles.profileActions}><Pressable onPress={close}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{firstRun ? 'Skip' : 'Cancel'}</Text></Pressable><Pressable disabled={!hasProfile} onPress={() => onSave(name, nickname)} style={[styles.profileSave, { backgroundColor: colors.primary, opacity: hasProfile ? 1 : .45 }]}><Text style={styles.profileSaveText}>Save</Text></Pressable></View>
       </View>
     </View>
   </Modal>;

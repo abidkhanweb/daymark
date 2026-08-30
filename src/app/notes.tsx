@@ -1,7 +1,7 @@
 import { styles } from '@/styles/screens/notes.styles';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { Alert, Image, ImageStyle, Modal, Pressable, ScrollView, StyleProp, Text, TextInput, View } from 'react-native';
+import { Alert, Image, ImageStyle, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleProp, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -100,15 +100,19 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   };
 
   return <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
-    <SafeAreaView style={[styles.modal, { backgroundColor: colors.background }]}>
-      <View style={styles.modalHeader}><Pressable hitSlop={12} onPress={close}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancel</Text></Pressable><Text style={[styles.modalTitle, { color: colors.text }]}>{note ? 'Edit note' : 'New note'}</Text><Pressable hitSlop={12} onPress={save}><Text style={{ color: colors.primary, fontWeight: '800' }}>Save</Text></Pressable></View>
-      <TextInput autoFocus value={title} onChangeText={setTitle} placeholder="Note title" placeholderTextColor={colors.textSecondary} style={[styles.titleInput, { color: colors.text }]} />
-      <ScrollView style={styles.folderScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>{folders.map((folder) => <Pressable key={folder.id} onPress={() => setFolderId(folder.id)} style={[styles.folderChip, { backgroundColor: folder.id === folderId ? colors.primaryContainer : colors.surface, borderColor: folder.id === folderId ? colors.primary : colors.outline }]}><View style={[styles.dot, { backgroundColor: folder.color }]} /><Text style={{ color: colors.text, fontWeight: '600' }}>{folder.name}</Text></Pressable>)}</ScrollView>
-      <View style={styles.imageActions}><ImageButton icon="add-photo-alternate" label="Gallery" onPress={chooseImage} /><ImageButton icon="content-paste" label="Paste image" onPress={pasteImage} />{imageUri && <ImageButton icon="delete-outline" label="Remove" onPress={() => replaceImage()} destructive />}</View>
-      {imageUri && <NoteImage uri={imageUri} label="Note attachment preview" style={styles.imagePreview} />}
-      <TextInput multiline value={body} onChangeText={setBody} placeholder="Start writing…" placeholderTextColor={colors.textSecondary} textAlignVertical="top" style={[styles.bodyInput, imageUri && styles.bodyInputWithImage, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.outline }]} />
-      {note && <Pressable onPress={remove} style={styles.deleteNote}><AppIcon name="delete-outline" size={20} tintColor={colors.error} /><Text style={{ color: colors.error, fontWeight: '800' }}>Delete note</Text></Pressable>}
-    </SafeAreaView>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
+      <SafeAreaView style={[styles.modal, { backgroundColor: colors.background }]}>
+        <View style={styles.modalHeader}><Pressable hitSlop={12} onPress={close}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancel</Text></Pressable><Text style={[styles.modalTitle, { color: colors.text }]}>{note ? 'Edit note' : 'New note'}</Text><Pressable hitSlop={12} onPress={save}><Text style={{ color: colors.primary, fontWeight: '800' }}>Save</Text></Pressable></View>
+        <ScrollView contentContainerStyle={styles.modalContent} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <TextInput autoFocus value={title} onChangeText={setTitle} placeholder="Note title" placeholderTextColor={colors.textSecondary} style={[styles.titleInput, { color: colors.text }]} />
+          <ScrollView style={styles.folderScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>{folders.map((folder) => <Pressable key={folder.id} onPress={() => setFolderId(folder.id)} style={[styles.folderChip, { backgroundColor: folder.id === folderId ? colors.primaryContainer : colors.surface, borderColor: folder.id === folderId ? colors.primary : colors.outline }]}><View style={[styles.dot, { backgroundColor: folder.color }]} /><Text style={{ color: colors.text, fontWeight: '600' }}>{folder.name}</Text></Pressable>)}</ScrollView>
+          <View style={styles.imageActions}><ImageButton icon="add-photo-alternate" label="Gallery" onPress={chooseImage} /><ImageButton icon="content-paste" label="Paste image" onPress={pasteImage} />{imageUri && <ImageButton icon="delete-outline" label="Remove" onPress={() => replaceImage()} destructive />}</View>
+          {imageUri && <NoteImage uri={imageUri} label="Note attachment preview" style={styles.imagePreview} />}
+          <TextInput multiline value={body} onChangeText={setBody} placeholder="Start writing…" placeholderTextColor={colors.textSecondary} textAlignVertical="top" style={[styles.bodyInput, imageUri && styles.bodyInputWithImage, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.outline }]} />
+          {note && <Pressable onPress={remove} style={styles.deleteNote}><AppIcon name="delete-outline" size={20} tintColor={colors.error} /><Text style={{ color: colors.error, fontWeight: '800' }}>Delete note</Text></Pressable>}
+        </ScrollView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   </Modal>;
 }
 

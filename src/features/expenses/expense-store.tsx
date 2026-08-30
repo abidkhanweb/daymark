@@ -4,15 +4,18 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 import { createDemoExpenseData } from '@/features/demo/demo-data';
 import { useDemoMode } from '@/features/demo/demo-mode';
 
-import { ExpenseData, initialExpenseData, LedgerEntry, MoneyFlow, PaymentMethod } from './model';
+import { AccountKind, ExpenseData, initialExpenseData, LedgerEntry, LedgerEntryInput } from './model';
 
 const STORAGE_KEY = 'daymark.expenses.v1';
+type StoredEntry = Omit<LedgerEntry, 'accountId'> & { accountId?: string; personId?: string };
+type StoredExpenseData = Partial<Omit<ExpenseData, 'entries'>> & { people?: { id: string; name: string; createdAt: string }[]; entries?: StoredEntry[] };
 
 type ExpenseStore = ExpenseData & {
-  addPerson: (name: string) => string | null;
-  deletePerson: (id: string) => void;
-  addEntry: (input: { personId: string; flow: MoneyFlow; paymentMethods: PaymentMethod[]; amountPaise: number; occurredAt: string; note: string }) => void;
-  updateEntry: (id: string, input: { personId: string; flow: MoneyFlow; paymentMethods: PaymentMethod[]; amountPaise: number; occurredAt: string; note: string }) => void;
+  addAccount: (name: string, kind: AccountKind) => string | null;
+  deleteAccount: (id: string) => void;
+  addEntry: (input: LedgerEntryInput) => void;
+  addEntries: (inputs: LedgerEntryInput[]) => void;
+  updateEntry: (id: string, input: LedgerEntryInput) => void;
   deleteEntry: (id: string) => void;
 };
 
@@ -29,8 +32,11 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((value) => {
       if (!value) return;
-      const stored = JSON.parse(value) as Partial<ExpenseData>;
-      setPersonalData({ people: stored.people ?? [], entries: (stored.entries ?? []).map((entry) => ({ ...entry, paymentMethods: entry.paymentMethods ?? [] })) });
+      const stored = JSON.parse(value) as StoredExpenseData;
+      setPersonalData({
+        accounts: stored.accounts ?? stored.people?.map((person) => ({ ...person, kind: 'person' as const })) ?? [],
+        entries: (stored.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? entry.personId ?? '', paymentMethods: entry.paymentMethods ?? [] })),
+      });
     }).finally(() => setHydrated(true));
   }, []);
 
@@ -40,18 +46,22 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
 
   const store = useMemo<ExpenseStore>(() => ({
     ...data,
-    addPerson: (name) => {
+    addAccount: (name, kind) => {
       const trimmed = name.trim();
-      if (!trimmed || data.people.some((person) => person.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return null;
+      if (!trimmed || data.accounts.some((account) => account.kind === kind && account.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return null;
       const id = `${Date.now()}`;
-      setData((current) => ({ ...current, people: [...current.people, { id, name: trimmed, createdAt: new Date().toISOString() }] }));
+      setData((current) => ({ ...current, accounts: [...current.accounts, { id, name: trimmed, kind, createdAt: new Date().toISOString() }] }));
       return id;
     },
-    deletePerson: (id) => setData((current) => ({
-      people: current.people.filter((person) => person.id !== id),
-      entries: current.entries.filter((entry) => entry.personId !== id),
+    deleteAccount: (id) => setData((current) => ({
+      accounts: current.accounts.filter((account) => account.id !== id),
+      entries: current.entries.filter((entry) => entry.accountId !== id),
     })),
     addEntry: (input) => setData((current) => ({ ...current, entries: [{ ...input, id: `${Date.now()}` } as LedgerEntry, ...current.entries] })),
+    addEntries: (inputs) => setData((current) => {
+      const timestamp = Date.now();
+      return { ...current, entries: [...inputs.map((input, index) => ({ ...input, id: `${timestamp}-${index}` } as LedgerEntry)), ...current.entries] };
+    }),
     updateEntry: (id, input) => setData((current) => ({ ...current, entries: current.entries.map((entry) => entry.id === id ? { ...entry, ...input } : entry) })),
     deleteEntry: (id) => setData((current) => ({ ...current, entries: current.entries.filter((entry) => entry.id !== id) })),
   }), [data, setData]);
