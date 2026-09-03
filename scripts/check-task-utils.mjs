@@ -5,6 +5,7 @@ const { canUseDemoMode, profileGreetingName } = await import('../src/features/ta
 
 assert.equal(profileGreetingName('Alex', ''), 'Alex');
 assert.equal(profileGreetingName('Alex', 'Lex'), 'Lex');
+assert.equal(profileGreetingName('Alex', 'alex001'), 'Alex');
 assert.equal(canUseDemoMode('alex001'), true);
 assert.equal(canUseDemoMode('Alex'), false);
 

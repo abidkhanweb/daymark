@@ -10,13 +10,22 @@ const STORAGE_KEY = 'daymark.expenses.v1';
 type StoredEntry = Omit<LedgerEntry, 'accountId'> & { accountId?: string; personId?: string };
 type StoredExpenseData = Partial<Omit<ExpenseData, 'entries'>> & { people?: { id: string; name: string; createdAt: string }[]; entries?: StoredEntry[] };
 
+function migrateExpenseData(stored: StoredExpenseData): ExpenseData {
+  return {
+    accounts: stored.accounts ?? stored.people?.map((person) => ({ ...person, kind: 'person' as const })) ?? [],
+    entries: (stored.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? entry.personId ?? '', paymentMethods: entry.paymentMethods ?? [] })),
+  };
+}
+
 type ExpenseStore = ExpenseData & {
+  hydrated: boolean;
   addAccount: (name: string, kind: AccountKind) => string | null;
   deleteAccount: (id: string) => void;
   addEntry: (input: LedgerEntryInput) => void;
   addEntries: (inputs: LedgerEntryInput[]) => void;
   updateEntry: (id: string, input: LedgerEntryInput) => void;
   deleteEntry: (id: string) => void;
+  importData: (data: Partial<ExpenseData>) => void;
 };
 
 const Context = createContext<ExpenseStore | null>(null);
@@ -32,11 +41,7 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((value) => {
       if (!value) return;
-      const stored = JSON.parse(value) as StoredExpenseData;
-      setPersonalData({
-        accounts: stored.accounts ?? stored.people?.map((person) => ({ ...person, kind: 'person' as const })) ?? [],
-        entries: (stored.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? entry.personId ?? '', paymentMethods: entry.paymentMethods ?? [] })),
-      });
+      setPersonalData(migrateExpenseData(JSON.parse(value) as StoredExpenseData));
     }).finally(() => setHydrated(true));
   }, []);
 
@@ -46,6 +51,7 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
 
   const store = useMemo<ExpenseStore>(() => ({
     ...data,
+    hydrated,
     addAccount: (name, kind) => {
       const trimmed = name.trim();
       if (!trimmed || data.accounts.some((account) => account.kind === kind && account.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return null;
@@ -64,7 +70,8 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
     }),
     updateEntry: (id, input) => setData((current) => ({ ...current, entries: current.entries.map((entry) => entry.id === id ? { ...entry, ...input } : entry) })),
     deleteEntry: (id) => setData((current) => ({ ...current, entries: current.entries.filter((entry) => entry.id !== id) })),
-  }), [data, setData]);
+    importData: (input) => setPersonalData(migrateExpenseData(input)),
+  }), [data, hydrated, setData]);
 
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }

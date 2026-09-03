@@ -44,3 +44,27 @@ export function removeNoteImage(uri?: string) {
   if (!uri || Platform.OS === 'web' || !uri.includes(`/${directoryName}/`)) return;
   import('expo-file-system/legacy').then((FileSystem) => FileSystem.deleteAsync(uri, { idempotent: true })).catch(() => undefined);
 }
+
+export async function exportNoteImages<T extends { notes: { imageUri?: string }[] }>(data: T): Promise<T> {
+  const notes = await Promise.all(data.notes.map(async (note) => {
+    if (!note.imageUri || note.imageUri.startsWith('data:')) return note;
+    const extension = note.imageUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const mime = extension === 'png' ? 'image/png' : 'image/jpeg';
+    const base64 = await import('expo-file-system/legacy').then((FileSystem) =>
+      FileSystem.readAsStringAsync(note.imageUri!, { encoding: FileSystem.EncodingType.Base64 }),
+    ).catch(() => null);
+    if (!base64) return { ...note, imageUri: undefined };
+    return { ...note, imageUri: `data:${mime};base64,${base64}` };
+  }));
+  return { ...data, notes };
+}
+
+export async function restoreNoteImages<T extends { notes: { imageUri?: string }[] }>(data: T): Promise<T> {
+  const notes = await Promise.all(data.notes.map(async (note) => {
+    if (!note.imageUri?.startsWith('data:image/')) return note;
+    const match = /^data:image\/([^;]+);base64,(.+)$/.exec(note.imageUri);
+    if (!match) return { ...note, imageUri: undefined };
+    return { ...note, imageUri: await persistImage(note.imageUri, match[1], match[2]) };
+  }));
+  return { ...data, notes };
+}

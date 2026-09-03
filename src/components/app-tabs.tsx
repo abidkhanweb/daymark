@@ -33,6 +33,8 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Expenses</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} md="account_balance_wallet" />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="settings" hidden />
     </NativeTabs>
   );
 }

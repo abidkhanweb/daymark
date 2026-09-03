@@ -30,6 +30,7 @@ type TaskStore = AppData & {
   updateNote: (id: string, note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUri'>) => void;
   deleteNote: (id: string) => void;
   setProfile: (name: string, nickname: string) => void;
+  importData: (data: Partial<AppData>) => Promise<void>;
 };
 
 const Context = createContext<TaskStore | null>(null);
@@ -236,7 +237,17 @@ export function TaskProvider({ children }: PropsWithChildren) {
       profileNickname: nickname.trim(),
       profileOnboardingComplete: true,
     })),
-  }), [data, hydrated, isDemo, setData]);
+    importData: async (input) => {
+      const imported = migrateData(input);
+      await Promise.all(personalData.tasks.map((task) => cancelTaskReminder(task.notificationIds).catch(() => undefined)));
+      const tasks = await Promise.all(imported.tasks.map(async (task) => {
+        const cleanTask = { ...task, notificationId: undefined, notificationIds: [] };
+        if (cleanTask.completed) return cleanTask;
+        return { ...cleanTask, notificationIds: await scheduleTaskReminder(cleanTask).catch(() => []) };
+      }));
+      setPersonalData({ ...imported, tasks });
+    },
+  }), [data, hydrated, isDemo, personalData.tasks, setData]);
 
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
