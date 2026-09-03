@@ -53,7 +53,7 @@ export default function SettingsScreen() {
       <SettingRow icon="system-update-alt" title={busy ? 'Please wait…' : 'Install latest update'} text="Download a compatible EAS update and restart DayMark." disabled={busy} onPress={() => run(async () => {
         const result = await checkAndInstallUpdate();
         if (result === 'current') Alert.alert('DayMark is up to date');
-        if (result === 'disabled') Alert.alert('Updates unavailable here', 'Use the installed release APK, not Expo Go or development mode.');
+        if (result === 'disabled') Alert.alert('No update available', 'Please try again later.');
       })} />
       {showDemo && <SettingRow icon={isDemo ? 'visibility-off' : 'visibility'} title={isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'} text={isDemo ? 'Fingerprint is required to return to personal data.' : 'Show sample data while keeping yours hidden.'} onPress={() => run(async () => {
         if (isDemo) await exitDemo();
