@@ -1,15 +1,16 @@
 import { styles } from '@/styles/screens/notes.styles';
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
-import { Alert, Image, ImageStyle, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleProp, Text, TextInput, View } from 'react-native';
+import { createElement, Fragment, useRef, useState } from 'react';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
+import { applyNoteFormat, type NoteFormat, parseNoteLine } from '@/features/notes/note-format';
 import type { Note } from '@/features/tasks/model';
 import { useTasks } from '@/features/tasks/task-store';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { copyNoteImage, pasteNoteImage, pickNoteImage, removeNoteImage } from '@/services/note-images';
+import { copyNoteImage, pasteNoteImage, pickNoteImages, removeNoteImage } from '@/services/note-images';
 import { confirmAction } from '@/utils/confirm-action';
 import { formatDate } from '@/utils/date';
 
@@ -45,8 +46,8 @@ export default function NotesScreen() {
             </View>
             <Pressable onPress={() => edit(note)} style={styles.noteContent}>
               <Text style={[styles.noteTitle, { color: colors.text }]}>{note.title}</Text>
-              {note.imageUri && <NoteImage uri={note.imageUri} label={`${note.title} attachment`} style={view === 'list' && styles.noteImageList} />}
-              <Text numberOfLines={view === 'list' ? 3 : note.imageUri ? 3 : 5} style={[styles.noteBody, { color: colors.textSecondary }]}>{note.body || 'Tap to add details'}</Text>
+              {!!note.imageUris.length && <NoteGallery images={note.imageUris} label={note.title} />}
+              <FormattedNoteBody body={note.body} numberOfLines={view === 'list' ? 3 : note.imageUris.length ? 3 : 5} />
             </Pressable>
             <View style={styles.noteFooter}><Text style={[styles.updated, { color: colors.textSecondary }]}>Updated {formatDate(note.updatedAt)}</Text><View style={styles.noteActions}><Pressable accessibilityLabel={`Copy ${note.title}`} onPress={() => copy(note)} style={styles.iconButton}><AppIcon name="content-copy" size={18} tintColor={colors.textSecondary} /></Pressable><Pressable accessibilityLabel={`Edit ${note.title}`} onPress={() => edit(note)} style={styles.iconButton}><AppIcon name="edit" size={19} tintColor={colors.primary} /></Pressable><Pressable accessibilityLabel={`Delete ${note.title}`} onPress={() => remove(note)} style={styles.iconButton}><AppIcon name="delete-outline" size={19} tintColor={colors.error} /></Pressable></View></View>
           </View>;
@@ -63,18 +64,17 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   const { folders, addNote, updateNote, deleteNote } = useTasks();
   const [title, setTitle] = useState(note?.title ?? '');
   const [body, setBody] = useState(note?.body ?? '');
+  const bodyInput = useRef<TextInput>(null);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [folderId, setFolderId] = useState(note?.folderId ?? folders[0]?.id ?? 'uncategorized');
-  const [imageUri, setImageUri] = useState(note?.imageUri);
-  const replaceImage = (image?: string) => {
-    if (imageUri && imageUri !== note?.imageUri) removeNoteImage(imageUri);
-    setImageUri(image);
-  };
-  const close = () => { if (imageUri && imageUri !== note?.imageUri) removeNoteImage(imageUri); onClose(); };
+  const originalImages = note?.imageUris ?? [];
+  const [imageUris, setImageUris] = useState(originalImages);
+  const close = () => { imageUris.filter((uri) => !originalImages.includes(uri)).forEach(removeNoteImage); onClose(); };
 
   const chooseImage = async () => {
     try {
-      const image = await pickNoteImage();
-      if (image) replaceImage(image);
+      const images = await pickNoteImages();
+      if (images.length) setImageUris((current) => [...new Set([...current, ...images])]);
     } catch {
       Alert.alert('Image unavailable', 'The selected image could not be attached.');
     }
@@ -82,7 +82,7 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   const pasteImage = async () => {
     try {
       const image = await pasteNoteImage();
-      if (image) replaceImage(image);
+      if (image) setImageUris((current) => current.includes(image) ? current : [...current, image]);
       else Alert.alert('No image found', 'Copy an image first, then try again.');
     } catch {
       Alert.alert('Paste failed', 'The clipboard image could not be attached.');
@@ -90,13 +90,27 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   };
   const save = () => {
     if (!title.trim()) { Alert.alert('Note title required', 'Enter a title before saving.'); return; }
-    const input = { title: title.trim(), body: body.trim(), folderId, imageUri };
+    const input = { title: title.trim(), body: body.trim(), folderId, imageUris };
     if (note) updateNote(note.id, input); else addNote(input);
     onClose();
   };
   const remove = () => {
     if (!note) return;
-    confirmAction('Delete note?', `“${note.title}” will be permanently deleted.`, () => { deleteNote(note.id); onClose(); });
+    confirmAction('Delete note?', `“${note.title}” will be permanently deleted.`, () => {
+      imageUris.filter((uri) => !originalImages.includes(uri)).forEach(removeNoteImage);
+      deleteNote(note.id);
+      onClose();
+    });
+  };
+  const format = (action: NoteFormat) => {
+    const next = applyNoteFormat(body, selection, action);
+    setBody(next.text);
+    setSelection(next.selection);
+    requestAnimationFrame(() => bodyInput.current?.focus());
+  };
+  const removeImage = (uri: string) => {
+    if (!originalImages.includes(uri)) removeNoteImage(uri);
+    setImageUris((current) => current.filter((image) => image !== uri));
   };
 
   return <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
@@ -106,9 +120,10 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
         <ScrollView contentContainerStyle={styles.modalContent} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TextInput autoFocus value={title} onChangeText={setTitle} placeholder="Note title" placeholderTextColor={colors.textSecondary} style={[styles.titleInput, { color: colors.text }]} />
           <ScrollView style={styles.folderScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>{folders.map((folder) => <Pressable key={folder.id} onPress={() => setFolderId(folder.id)} style={[styles.folderChip, { backgroundColor: folder.id === folderId ? colors.primaryContainer : colors.surface, borderColor: folder.id === folderId ? colors.primary : colors.outline }]}><View style={[styles.dot, { backgroundColor: folder.color }]} /><Text style={{ color: colors.text, fontWeight: '600' }}>{folder.name}</Text></Pressable>)}</ScrollView>
-          <View style={styles.imageActions}><ImageButton icon="add-photo-alternate" label="Gallery" onPress={chooseImage} /><ImageButton icon="content-paste" label="Paste image" onPress={pasteImage} />{imageUri && <ImageButton icon="delete-outline" label="Remove" onPress={() => replaceImage()} destructive />}</View>
-          {imageUri && <NoteImage uri={imageUri} label="Note attachment preview" style={styles.imagePreview} />}
-          <TextInput multiline value={body} onChangeText={setBody} placeholder="Start writing…" placeholderTextColor={colors.textSecondary} textAlignVertical="top" style={[styles.bodyInput, imageUri && styles.bodyInputWithImage, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.outline }]} />
+          <View style={styles.imageActions}><ImageButton icon="add-photo-alternate" label="Add photos" onPress={chooseImage} /><ImageButton icon="content-paste" label="Paste image" onPress={pasteImage} /></View>
+          {!!imageUris.length && <NoteGallery images={imageUris} label="Note attachment" onRemove={removeImage} />}
+          <View style={[styles.formatToolbar, { backgroundColor: colors.surface, borderColor: colors.outline }]}><FormatButton icon="format-bold" label="Bold" onPress={() => format('bold')} /><FormatButton icon="format-italic" label="Italic" onPress={() => format('italic')} /><FormatButton icon="format-list-bulleted" label="Bullets" onPress={() => format('bullet')} /><FormatButton icon="format-list-numbered" label="Numbered list" onPress={() => format('numbered')} /></View>
+          <TextInput ref={bodyInput} multiline value={body} selection={selection} onSelectionChange={(event) => setSelection(event.nativeEvent.selection)} onChangeText={setBody} placeholder="Start writing…" placeholderTextColor={colors.textSecondary} textAlignVertical="top" style={[styles.bodyInput, imageUris.length > 0 && styles.bodyInputWithImage, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.outline }]} />
           {note && <Pressable onPress={remove} style={styles.deleteNote}><AppIcon name="delete-outline" size={20} tintColor={colors.error} /><Text style={{ color: colors.error, fontWeight: '800' }}>Delete note</Text></Pressable>}
         </ScrollView>
       </SafeAreaView>
@@ -116,21 +131,48 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   </Modal>;
 }
 
-function ImageButton({ icon, label, onPress, destructive }: { icon: 'add-photo-alternate' | 'content-paste' | 'delete-outline'; label: string; onPress: () => void; destructive?: boolean }) {
+function ImageButton({ icon, label, onPress }: { icon: 'add-photo-alternate' | 'content-paste'; label: string; onPress: () => void }) {
   const colors = useAppTheme();
-  const color = destructive ? colors.error : colors.primary;
-  return <Pressable accessibilityLabel={label} onPress={onPress} style={[styles.imageButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name={icon} size={18} tintColor={color} /><Text style={[styles.imageButtonText, { color }]}>{label}</Text></Pressable>;
+  return <Pressable accessibilityLabel={label} onPress={onPress} style={[styles.imageButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name={icon} size={18} tintColor={colors.primary} /><Text style={[styles.imageButtonText, { color: colors.primary }]}>{label}</Text></Pressable>;
 }
 
-function NoteImage({ uri, label, style }: { uri: string; label: string; style?: StyleProp<ImageStyle> | false }) {
+function FormatButton({ icon, label, onPress }: { icon: 'format-bold' | 'format-italic' | 'format-list-bulleted' | 'format-list-numbered'; label: string; onPress: () => void }) {
   const colors = useAppTheme();
-  const copy = async () => {
-    try {
-      await copyNoteImage(uri);
-      Alert.alert('Image copied', 'The image is ready to paste.');
-    } catch {
-      Alert.alert('Copy failed', 'The image could not be copied.');
-    }
-  };
-  return <View style={[styles.imageCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.outline }]}><Image accessibilityLabel={label} source={{ uri }} resizeMode="cover" style={[styles.noteImage, style]} /><Pressable accessibilityLabel="Copy image" android_ripple={{ color: colors.primaryContainer }} onPress={(event) => { event.stopPropagation(); copy(); }} style={[styles.copyImageButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name="content-copy" size={18} tintColor={colors.primary} /></Pressable></View>;
+  return <Pressable accessibilityLabel={label} onPress={onPress} style={styles.formatButton}><AppIcon name={icon} size={21} tintColor={colors.primary} /></Pressable>;
+}
+
+function FormattedNoteBody({ body, numberOfLines }: { body: string; numberOfLines: number }) {
+  const colors = useAppTheme();
+  if (!body) return <Text style={[styles.noteBody, { color: colors.textSecondary }]}>Tap to add details</Text>;
+  return <Text numberOfLines={numberOfLines} style={[styles.noteBody, { color: colors.textSecondary }]}>{body.split('\n').map((line, lineIndex) => {
+    const parsed = parseNoteLine(line);
+    return <Fragment key={lineIndex}>{lineIndex > 0 && '\n'}{parsed.prefix}{parsed.tokens.map((token, tokenIndex) => <Text key={tokenIndex} style={{ fontWeight: token.bold ? '800' : undefined, fontStyle: token.italic ? 'italic' : undefined }}>{token.text}</Text>)}</Fragment>;
+  })}</Text>;
+}
+
+function NoteGallery({ images, label, onRemove }: { images: string[]; label: string; onRemove?: (uri: string) => void }) {
+  const colors = useAppTheme();
+  const { width } = useWindowDimensions();
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const activeUri = images[activeIndex ?? 0];
+  return <><ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>{images.map((uri, index) => <View key={uri} style={styles.galleryItem}><NoteImage uri={uri} label={`${label} ${index + 1}`} onView={() => setActiveIndex(index)} />{onRemove && <Pressable accessibilityLabel={`Remove image ${index + 1}`} onPress={() => onRemove(uri)} style={[styles.removeImageButton, { backgroundColor: colors.surface }]}><AppIcon name="close" size={18} tintColor={colors.error} /></Pressable>}</View>)}</ScrollView>{activeIndex !== null && <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => setActiveIndex(null)}><View style={styles.imageViewer}><View style={styles.imageViewerBackdrop} /><Pressable accessibilityLabel="Close image" onPress={() => setActiveIndex(null)} style={styles.imageViewerClose}><AppIcon name="close" size={28} tintColor="#FFFFFF" /></Pressable><FlatList style={styles.imageViewerList} data={images} horizontal pagingEnabled initialScrollIndex={activeIndex} getItemLayout={(_, index) => ({ length: width, offset: width * index, index })} keyExtractor={(uri) => uri} onMomentumScrollEnd={(event) => setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / width))} showsHorizontalScrollIndicator={false} renderItem={({ item, index }) => <View style={[styles.imageViewerPage, { width }]}><ViewerImage uri={item} label={`${label} ${index + 1}`} /></View>} /><Text style={styles.imageViewerCounter}>{activeIndex + 1} / {images.length}</Text><Pressable accessibilityLabel="Copy image" onPress={() => copyImage(activeUri)} style={styles.imageViewerCopy}><AppIcon name="content-copy" size={20} tintColor="#FFFFFF" /><Text style={styles.imageViewerCopyText}>Copy</Text></Pressable></View></Modal>}</>;
+}
+
+function ViewerImage({ uri, label }: { uri: string; label: string }) {
+  if (Platform.OS === 'web') return createElement('img', { src: uri, alt: label, draggable: false, style: { width: '100%', height: '80%', objectFit: 'contain' } });
+  return <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" style={styles.imageViewerImage} />;
+}
+
+async function copyImage(uri: string) {
+  try {
+    await copyNoteImage(uri);
+    Alert.alert('Image copied', 'The image is ready to paste.');
+  } catch {
+    Alert.alert('Copy failed', 'The image could not be copied.');
+  }
+}
+
+function NoteImage({ uri, label, onView }: { uri: string; label: string; onView: () => void }) {
+  const colors = useAppTheme();
+  return <View style={[styles.imageCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.outline }]}><Pressable accessibilityLabel={`View ${label}`} onPress={(event) => { event.stopPropagation(); onView(); }} style={styles.imageTap}><Image accessibilityLabel={label} source={{ uri }} resizeMode="cover" style={[styles.noteImage, styles.noteImageThumb]} /></Pressable><Pressable accessibilityLabel="Copy image" android_ripple={{ color: colors.primaryContainer }} onPress={(event) => { event.stopPropagation(); copyImage(uri); }} style={[styles.copyImageButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name="content-copy" size={18} tintColor={colors.primary} /></Pressable></View>;
 }

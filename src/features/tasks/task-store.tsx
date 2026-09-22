@@ -26,8 +26,8 @@ type TaskStore = AppData & {
   deleteFolder: (id: string, deleteTasks: boolean) => Promise<void>;
   addTemplate: (template: TaskTemplate) => boolean;
   deleteTemplate: (title: string) => void;
-  addNote: (note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUri'>) => void;
-  updateNote: (id: string, note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUri'>) => void;
+  addNote: (note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUris'>) => void;
+  updateNote: (id: string, note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUris'>) => void;
   deleteNote: (id: string) => void;
   setProfile: (name: string, nickname: string) => void;
   importData: (data: Partial<AppData>) => Promise<void>;
@@ -217,15 +217,16 @@ export function TaskProvider({ children }: PropsWithChildren) {
       notes: [{ ...note, id: `${Date.now()}`, updatedAt: new Date().toISOString() }, ...current.notes],
     })),
     updateNote: (id, note) => {
-      const previousImage = data.notes.find((item) => item.id === id)?.imageUri;
-      if (previousImage && previousImage !== note.imageUri) removeNoteImage(previousImage);
+      const previousImages = data.notes.find((item) => item.id === id)?.imageUris ?? [];
+      const currentImages = new Set(note.imageUris);
+      previousImages.filter((uri) => !currentImages.has(uri)).forEach(removeNoteImage);
       setData((current) => ({
         ...current,
         notes: current.notes.map((item) => item.id === id ? { ...item, ...note, updatedAt: new Date().toISOString() } : item),
       }));
     },
     deleteNote: (id) => {
-      removeNoteImage(data.notes.find((note) => note.id === id)?.imageUri);
+      data.notes.find((note) => note.id === id)?.imageUris.forEach(removeNoteImage);
       setData((current) => ({
         ...current,
         notes: current.notes.filter((note) => note.id !== id),

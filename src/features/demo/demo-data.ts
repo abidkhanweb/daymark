@@ -28,8 +28,8 @@ export function createDemoTaskData(): AppData {
       task('demo-task-4', 'Review monthly goals', -2, 9, 'work', 'normal', true),
     ],
     notes: [
-      { id: 'demo-note-1', title: 'Presentation ideas', body: 'Lead with the customer outcome, then show the timeline and next steps.', folderId: 'work', updatedAt: at(0, 9) },
-      { id: 'demo-note-2', title: 'Weekend plan', body: 'Groceries, a morning walk, and time to read.', folderId: 'personal', updatedAt: at(-1, 18) },
+      { id: 'demo-note-1', title: 'Presentation ideas', body: 'Lead with the customer outcome, then show the timeline and next steps.', folderId: 'work', imageUris: [], updatedAt: at(0, 9) },
+      { id: 'demo-note-2', title: 'Weekend plan', body: 'Groceries, a morning walk, and time to read.', folderId: 'personal', imageUris: [], updatedAt: at(-1, 18) },
     ],
     customTemplates: [],
     hiddenTemplateTitles: [],

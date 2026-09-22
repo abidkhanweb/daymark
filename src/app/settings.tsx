@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
         if (result === 'current') Alert.alert('DayMark is up to date');
         if (result === 'disabled') Alert.alert('No update available', 'Please try again later.');
       })} />
-      {showDemo && <SettingRow icon={isDemo ? 'visibility-off' : 'visibility'} title={isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'} text={isDemo ? 'Fingerprint is required to return to personal data.' : 'Show sample data while keeping yours hidden.'} onPress={() => run(async () => {
+      {showDemo && <SettingRow icon={isDemo ? 'visibility-off' : 'visibility'} title={isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'} text={isDemo ? Platform.OS === 'web' ? 'Return to your personal data.' : 'Fingerprint is required to return to personal data.' : 'Show sample data while keeping yours hidden.'} onPress={() => run(async () => {
         if (isDemo) await exitDemo();
         else { setProfile(name, nickname); enterDemo(); }
       })} disabled={busy} />}

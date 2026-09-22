@@ -48,7 +48,8 @@
     "lint": "expo lint",
     "check:expenses": "node --no-warnings --experimental-strip-types scripts/check-expense-utils.mjs",
     "check:tasks": "node --no-warnings --experimental-strip-types scripts/check-task-utils.mjs",
-    "check:backup": "node --no-warnings --experimental-strip-types scripts/check-backup.mjs"
+    "check:backup": "node --no-warnings --experimental-strip-types scripts/check-backup.mjs",
+    "check:notes": "node --no-warnings --experimental-strip-types scripts/check-note-format.mjs"
   },
   "private": true
 }
