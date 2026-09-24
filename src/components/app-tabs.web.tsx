@@ -7,7 +7,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 
 export default function AppTabs() {
   const colors = useAppTheme();
-  return <Tabs><TabSlot style={{ height: '100%' }} /><TabList style={[styles.bar, { backgroundColor: colors.surface, borderColor: colors.outline }]}><TabTrigger name="today" href="/" asChild><Tab icon="today">Today</Tab></TabTrigger><TabTrigger name="tasks" href="/tasks" asChild><Tab icon="checklist">Tasks</Tab></TabTrigger><TabTrigger name="notes" href="/notes" asChild><Tab icon="notes">Notes</Tab></TabTrigger><TabTrigger name="expenses" href="/expenses" asChild><Tab icon="account-balance-wallet">Expenses</Tab></TabTrigger></TabList></Tabs>;
+  return <Tabs><TabSlot style={{ height: '100%' }} /><TabList style={[styles.bar, { backgroundColor: colors.surface, borderColor: colors.outline }]}><TabTrigger name="today" href="/" asChild><Tab icon="today">Today</Tab></TabTrigger><TabTrigger name="tasks" href="/tasks" asChild><Tab icon="checklist">Tasks</Tab></TabTrigger><TabTrigger name="notes" href="/notes" asChild><Tab icon="notes">Notes</Tab></TabTrigger><TabTrigger name="expenses" href="/expenses" asChild><Tab icon="account-balance-wallet">Expenses</Tab></TabTrigger><TabTrigger name="settings" href="/settings" style={{ display: 'none' }} /></TabList></Tabs>;
 }
 
 function Tab({ children, isFocused, icon, ...props }: TabTriggerSlotProps & { icon: AppIconName }) {

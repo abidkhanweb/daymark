@@ -34,6 +34,7 @@ export type Note = {
   title: string;
   body: string;
   folderId: string;
+  imageUris: string[];
   imageUri?: string;
   updatedAt: string;
 };
@@ -44,6 +45,7 @@ export type TaskDraft = Omit<Task, 'id' | 'completed' | 'notificationId' | 'noti
 
 export type AppData = {
   profileName: string;
+  profileNickname: string;
   profileOnboardingComplete: boolean;
   tasks: Task[];
   folders: Folder[];
@@ -73,6 +75,7 @@ const due = (dayOffset: number, hour: number, minute = 0) => {
 
 export const initialData: AppData = {
   profileName: '',
+  profileNickname: '',
   profileOnboardingComplete: false,
   customTemplates: [],
   hiddenTemplateTitles: [],
@@ -128,6 +131,7 @@ export const initialData: AppData = {
       title: 'Monthly focus',
       body: 'Protect mornings for deep work. Keep Friday afternoon for review and planning.',
       folderId: 'work',
+      imageUris: [],
       updatedAt: new Date().toISOString(),
     },
   ],

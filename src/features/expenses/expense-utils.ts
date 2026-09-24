@@ -28,3 +28,22 @@ export function summarizeEntries(entries: LedgerEntry[]) {
   const received = entries.reduce((sum, entry) => sum + (entry.flow === 'received' ? entry.amountPaise : 0), 0);
   return { given, received, pending: given - received };
 }
+
+export function summarizeDailyEntries(entries: LedgerEntry[]) {
+  const purchased = entries.reduce((sum, entry) => sum + (entry.flow === 'purchase' ? entry.amountPaise : 0), 0);
+  const paid = entries.reduce((sum, entry) => sum + (entry.flow === 'payment' ? entry.amountPaise : 0), 0);
+  const balance = purchased - paid;
+  return { purchased, paid, due: Math.max(balance, 0), advance: Math.max(-balance, 0) };
+}
+
+export function summarizeDailyBalances(entries: LedgerEntry[]) {
+  const balances = new Map<string, number>();
+  entries.forEach((entry) => {
+    const change = entry.flow === 'purchase' ? entry.amountPaise : entry.flow === 'payment' ? -entry.amountPaise : 0;
+    balances.set(entry.accountId, (balances.get(entry.accountId) ?? 0) + change);
+  });
+  return [...balances.values()].reduce((totals, balance) => ({
+    due: totals.due + Math.max(balance, 0),
+    advance: totals.advance + Math.max(-balance, 0),
+  }), { due: 0, advance: 0 });
+}

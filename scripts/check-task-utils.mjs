@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 
 const { completeRecurringTask, removeRecurringDuplicates, rollTaskForward, setTaskCompleted } = await import('../src/features/tasks/task-completion.ts');
+const { canUseDemoMode, profileGreetingName } = await import('../src/features/tasks/profile-utils.ts');
+
+assert.equal(profileGreetingName('Alex', ''), 'Alex');
+assert.equal(profileGreetingName('Alex', 'Lex'), 'Lex');
+assert.equal(profileGreetingName('Alex', 'alex001'), 'Alex');
+assert.equal(canUseDemoMode('alex001'), true);
+assert.equal(canUseDemoMode('Alex'), false);
 
 const task = {
   id: 'task',
