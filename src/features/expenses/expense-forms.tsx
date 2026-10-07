@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -81,7 +81,7 @@ export function EntryForm({ account, entry, onClose }: { account: LedgerAccount;
   };
 
   return <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-    <SafeAreaView style={[styles.sheet, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheet}><SafeAreaView style={[styles.sheet, { backgroundColor: colors.background }]}><ScrollView style={styles.sheetScroll} automaticallyAdjustKeyboardInsets contentContainerStyle={styles.sheetContent} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.sheetHeader}><Pressable hitSlop={12} onPress={onClose}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancel</Text></Pressable><Text style={[styles.sheetTitle, { color: colors.text }]}>{entry ? 'Edit entry' : 'New entry'}</Text><Pressable hitSlop={12} onPress={save}><Text style={{ color: colors.primary, fontWeight: '800' }}>Save</Text></Pressable></View>
       <View><Text style={[styles.personName, { color: colors.text }]}>{account.name}</Text><Text style={[styles.caption, { color: colors.textSecondary }]}>{isDaily ? 'Record a purchase or payment.' : 'Record money given or received.'}</Text></View>
       <View style={styles.flowRow}>{isDaily
@@ -93,7 +93,7 @@ export function EntryForm({ account, entry, onClose }: { account: LedgerAccount;
       {recordsPayment && <View><Text style={[styles.label, { color: colors.text }]}>Payment method</Text><View style={styles.methodRow}><MethodButton label="Online" selected={paymentMethods.includes('online')} onPress={() => toggleMethod('online')} /><MethodButton label="Cash" selected={paymentMethods.includes('cash')} onPress={() => toggleMethod('cash')} /></View><Text style={[styles.methodHint, { color: colors.textSecondary }]}>Select both for a mixed payment and mention the split in notes.</Text></View>}
       <View><Text style={[styles.label, { color: colors.text }]}>Date and time</Text><DateTimeField label="Entry date and time" maximumDate={new Date()} value={occurredAt} onChange={setOccurredAt} /></View>
       <View><Text style={[styles.label, { color: colors.text }]}>{flow === 'purchase' ? 'Items or note (optional)' : 'Note (optional)'}</Text><TextInput value={note} onChangeText={setNote} placeholder={flow === 'purchase' ? 'e.g. Milk and curd' : 'e.g. ₹500 cash + ₹500 online'} placeholderTextColor={colors.textSecondary} style={[styles.input, { color: colors.text, borderColor: colors.outline }]} /></View>
-    </SafeAreaView>
+    </ScrollView></SafeAreaView></KeyboardAvoidingView>
   </Modal>;
 }
 

@@ -1,13 +1,14 @@
 import { styles } from '@/styles/screens/notes.styles';
 import * as Clipboard from 'expo-clipboard';
-import { createElement, Fragment, useRef, useState } from 'react';
+import * as Sharing from 'expo-sharing';
+import { createElement, Fragment, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { FloatingActionButton } from '@/components/ui/floating-action-button';
 import { applyNoteFormat, type NoteFormat, parseNoteLine } from '@/features/notes/note-format';
-import type { Note } from '@/features/tasks/model';
+import type { Category, Folder, Note } from '@/features/tasks/model';
 import { useTasks } from '@/features/tasks/task-store';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { copyNoteImage, pasteNoteImage, pickNoteImages, removeNoteImage } from '@/services/note-images';
@@ -18,31 +19,35 @@ type NotesView = 'list' | 'tiles';
 
 export default function NotesScreen() {
   const colors = useAppTheme();
-  const { notes, folders, deleteNote } = useTasks();
+  const { notes, folders, categories, addFolder, deleteNote, toggleNoteFavorite } = useTasks();
   const [editing, setEditing] = useState<Note | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [view, setView] = useState<NotesView>('list');
   const [showViewMenu, setShowViewMenu] = useState(false);
+  const [showNavigation, setShowNavigation] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const visibleNotes = useMemo(() => notes.filter((note) => filter === 'all' || (filter === 'favorites' ? !!note.favorite : note.folderId === filter)), [filter, notes]);
   const edit = (note: Note | null) => { setEditing(note); setShowForm(true); };
   const chooseView = (next: NotesView) => { setView(next); setShowViewMenu(false); };
 
   const remove = (note: Note) => {
-    confirmAction('Delete note?', `“${note.title}” will be permanently deleted.`, () => deleteNote(note.id));
+    confirmAction('Delete note?', `“${note.title}” will move to the recycle bin.`, () => deleteNote(note.id));
   };
   const copy = async (note: Note) => {
     const copied = await Clipboard.setStringAsync([note.title, note.body].filter(Boolean).join('\n\n')).catch(() => false);
-    Alert.alert(copied ? 'Copied' : 'Copy failed', copied ? 'Note copied to clipboard.' : 'The clipboard is unavailable. Please try again.');
+    if (!copied) Alert.alert('Copy failed', 'The clipboard is unavailable. Please try again.');
+    else if (Platform.OS !== 'android') Alert.alert('Copied', 'Note copied to clipboard.');
   };
 
   return <View style={[styles.screen, { backgroundColor: colors.background }]}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><Text style={[styles.kicker, { color: colors.primary }]}>CAPTURE</Text><View style={styles.headingRow}><Text style={[styles.title, { color: colors.text }]}>Notes</Text><View style={styles.viewSelector}><Pressable accessibilityLabel={`Notes view: ${view}`} accessibilityRole="button" onPress={() => setShowViewMenu((open) => !open)} style={[styles.viewButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name={view === 'list' ? 'view-list' : 'grid-view'} size={18} tintColor={colors.primary} /><Text style={[styles.viewButtonText, { color: colors.text }]}>{view === 'list' ? 'List' : 'Tiles'}</Text><AppIcon name="arrow-drop-down" size={20} tintColor={colors.textSecondary} /></Pressable>{showViewMenu && <View style={[styles.viewMenu, { backgroundColor: colors.surface, borderColor: colors.outline }]}>{(['list', 'tiles'] as const).map((option) => <Pressable key={option} accessibilityRole="menuitem" onPress={() => chooseView(option)} style={[styles.viewOption, option === view && { backgroundColor: colors.primaryContainer }]}><AppIcon name={option === 'list' ? 'view-list' : 'grid-view'} size={18} tintColor={colors.primary} /><Text style={[styles.viewOptionText, { color: colors.text }]}>{option === 'list' ? 'List' : 'Tiles'}</Text>{option === view && <AppIcon name="check" size={17} tintColor={colors.primary} />}</Pressable>)}</View>}</View></View><Text style={[styles.subtitle, { color: colors.textSecondary }]}>{notes.length} note{notes.length === 1 ? '' : 's'} connected to your folders.</Text></View>
-        {notes.length ? <View style={[styles.notes, view === 'list' ? styles.list : styles.tiles]}>{notes.map((note, index) => {
+        <View style={styles.header}><Text style={[styles.kicker, { color: colors.primary }]}>CAPTURE</Text><View style={styles.headingRow}><View style={styles.titleRow}><Pressable accessibilityLabel="Open notes folders" onPress={() => setShowNavigation(true)} style={styles.menuButton}><AppIcon name="menu" tintColor={colors.primary} /></Pressable><Text style={[styles.title, { color: colors.text }]}>Notes</Text></View><View style={styles.viewSelector}><Pressable accessibilityLabel={`Notes view: ${view}`} accessibilityRole="button" onPress={() => setShowViewMenu((open) => !open)} style={[styles.viewButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}><AppIcon name={view === 'list' ? 'view-list' : 'grid-view'} size={18} tintColor={colors.primary} /><Text style={[styles.viewButtonText, { color: colors.text }]}>{view === 'list' ? 'List' : 'Tiles'}</Text><AppIcon name="arrow-drop-down" size={20} tintColor={colors.textSecondary} /></Pressable>{showViewMenu && <View style={[styles.viewMenu, { backgroundColor: colors.surface, borderColor: colors.outline }]}>{(['list', 'tiles'] as const).map((option) => <Pressable key={option} accessibilityRole="menuitem" onPress={() => chooseView(option)} style={[styles.viewOption, option === view && { backgroundColor: colors.primaryContainer }]}><AppIcon name={option === 'list' ? 'view-list' : 'grid-view'} size={18} tintColor={colors.primary} /><Text style={[styles.viewOptionText, { color: colors.text }]}>{option === 'list' ? 'List' : 'Tiles'}</Text>{option === view && <AppIcon name="check" size={17} tintColor={colors.primary} />}</Pressable>)}</View>}</View></View><Text style={[styles.subtitle, { color: colors.textSecondary }]}>{visibleNotes.length} note{visibleNotes.length === 1 ? '' : 's'} in this view.</Text></View>
+        {visibleNotes.length ? <View style={[styles.notes, view === 'list' ? styles.list : styles.tiles]}>{visibleNotes.map((note, index) => {
           const folder = folders.find((item) => item.id === note.folderId);
           return <View key={note.id} style={[styles.note, view === 'list' ? styles.noteList : styles.noteTile, { backgroundColor: index % 3 === 0 ? colors.primaryContainer : colors.surface, borderColor: colors.outline }]}>
             <View style={styles.noteTop}>
-              <View style={styles.folderInfo}><View style={[styles.folderIcon, { backgroundColor: folder?.color ?? colors.primary }]}><AppIcon name="notes" size={17} tintColor="#FFFFFF" /></View><Text style={[styles.folderName, { color: colors.textSecondary }]}>{folder?.name ?? 'Unsorted'}</Text></View>
+              <View style={styles.folderInfo}><View style={[styles.folderIcon, { backgroundColor: folder?.color ?? colors.primary }]}><AppIcon name="notes" size={17} tintColor="#FFFFFF" /></View><Text style={[styles.folderName, { color: colors.textSecondary }]}>{folder?.name ?? 'Unsorted'}</Text></View><Pressable accessibilityLabel={note.favorite ? 'Remove from favorites' : 'Add to favorites'} onPress={() => toggleNoteFavorite(note.id)} style={styles.iconButton}><AppIcon name={note.favorite ? 'star' : 'star-border'} size={20} tintColor={note.favorite ? colors.primary : colors.textSecondary} /></Pressable>
             </View>
             <Pressable onPress={() => edit(note)} style={styles.noteContent}>
               <Text style={[styles.noteTitle, { color: colors.text }]}>{note.title}</Text>
@@ -55,8 +60,20 @@ export default function NotesScreen() {
       </ScrollView>
     </SafeAreaView>
     <FloatingActionButton icon="edit-note" label="Create note" onPress={() => edit(null)} />
+    <NotesDrawer visible={showNavigation} filter={filter} folders={folders} categories={categories} notes={notes} onChoose={(value) => { setFilter(value); setShowNavigation(false); }} onAddFolder={addFolder} onClose={() => setShowNavigation(false)} />
     {showForm && <NoteForm note={editing} onClose={() => { setShowForm(false); setEditing(null); }} />}
   </View>;
+}
+
+function NotesDrawer({ visible, filter, folders, categories, notes, onChoose, onAddFolder, onClose }: { visible: boolean; filter: string; folders: Folder[]; categories: Category[]; notes: Note[]; onChoose: (value: string) => void; onAddFolder: (name: string, categoryId: string) => boolean; onClose: () => void }) {
+  const colors = useAppTheme();
+  const [name, setName] = useState('');
+  const add = () => {
+    if (!onAddFolder(name, categories[0]?.id ?? 'life')) { Alert.alert('Folder already exists', 'Choose another folder name.'); return; }
+    setName('');
+  };
+  const row = (value: string, label: string, icon: 'notes' | 'star' | 'folder', count: number) => <Pressable key={value} onPress={() => onChoose(value)} style={[styles.drawerRow, filter === value && { backgroundColor: colors.primaryContainer }]}><AppIcon name={icon} tintColor={filter === value ? colors.primary : colors.textSecondary} /><Text style={[styles.drawerLabel, { color: colors.text }]}>{label}</Text><Text style={{ color: colors.textSecondary }}>{count}</Text></Pressable>;
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}><View style={styles.drawerHost}><Pressable accessibilityLabel="Close notes folders" onPress={onClose} style={styles.drawerBackdrop} /><SafeAreaView style={[styles.drawer, { backgroundColor: colors.surface }]}><View style={styles.drawerHeader}><Text style={[styles.drawerTitle, { color: colors.text }]}>Notes</Text><Pressable accessibilityLabel="Close" onPress={onClose} style={styles.iconButton}><AppIcon name="close" tintColor={colors.textSecondary} /></Pressable></View>{row('all', 'All notes', 'notes', notes.length)}{row('favorites', 'Favorites', 'star', notes.filter((note) => note.favorite).length)}<Text style={[styles.drawerSection, { color: colors.textSecondary }]}>FOLDERS</Text><ScrollView>{folders.map((folder) => row(folder.id, folder.name, 'folder', notes.filter((note) => note.folderId === folder.id).length))}</ScrollView><View style={[styles.addFolderRow, { borderColor: colors.outline }]}><TextInput value={name} onChangeText={setName} onSubmitEditing={add} placeholder="New folder" placeholderTextColor={colors.textSecondary} style={[styles.addFolderInput, { color: colors.text }]} /><Pressable accessibilityLabel="Create folder" onPress={add} style={[styles.addFolderButton, { backgroundColor: colors.primaryContainer }]}><AppIcon name="create-new-folder" tintColor={colors.primary} /></Pressable></View></SafeAreaView></View></Modal>;
 }
 
 function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void }) {
@@ -96,7 +113,7 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
   };
   const remove = () => {
     if (!note) return;
-    confirmAction('Delete note?', `“${note.title}” will be permanently deleted.`, () => {
+    confirmAction('Delete note?', `“${note.title}” will move to the recycle bin.`, () => {
       imageUris.filter((uri) => !originalImages.includes(uri)).forEach(removeNoteImage);
       deleteNote(note.id);
       onClose();
@@ -117,12 +134,11 @@ function NoteForm({ note, onClose }: { note: Note | null; onClose: () => void })
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
       <SafeAreaView style={[styles.modal, { backgroundColor: colors.background }]}>
         <View style={styles.modalHeader}><Pressable hitSlop={12} onPress={close}><Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancel</Text></Pressable><Text style={[styles.modalTitle, { color: colors.text }]}>{note ? 'Edit note' : 'New note'}</Text><Pressable hitSlop={12} onPress={save}><Text style={{ color: colors.primary, fontWeight: '800' }}>Save</Text></Pressable></View>
-        <ScrollView contentContainerStyle={styles.modalContent} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView automaticallyAdjustKeyboardInsets contentContainerStyle={styles.modalContent} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TextInput autoFocus value={title} onChangeText={setTitle} placeholder="Note title" placeholderTextColor={colors.textSecondary} style={[styles.titleInput, { color: colors.text }]} />
           <ScrollView style={styles.folderScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>{folders.map((folder) => <Pressable key={folder.id} onPress={() => setFolderId(folder.id)} style={[styles.folderChip, { backgroundColor: folder.id === folderId ? colors.primaryContainer : colors.surface, borderColor: folder.id === folderId ? colors.primary : colors.outline }]}><View style={[styles.dot, { backgroundColor: folder.color }]} /><Text style={{ color: colors.text, fontWeight: '600' }}>{folder.name}</Text></Pressable>)}</ScrollView>
           <View style={styles.imageActions}><ImageButton icon="add-photo-alternate" label="Add photos" onPress={chooseImage} /><ImageButton icon="content-paste" label="Paste image" onPress={pasteImage} /></View>
-          {!!imageUris.length && <NoteGallery images={imageUris} label="Note attachment" onRemove={removeImage} />}
-          <View style={[styles.formatToolbar, { backgroundColor: colors.surface, borderColor: colors.outline }]}><FormatButton icon="format-bold" label="Bold" onPress={() => format('bold')} /><FormatButton icon="format-italic" label="Italic" onPress={() => format('italic')} /><FormatButton icon="format-list-bulleted" label="Bullets" onPress={() => format('bullet')} /><FormatButton icon="format-list-numbered" label="Numbered list" onPress={() => format('numbered')} /></View>
+          <View>{!!imageUris.length && <NoteGallery images={imageUris} label="Note attachment" onRemove={removeImage} />}<View style={[styles.formatToolbar, { backgroundColor: colors.surface, borderColor: colors.outline }]}><FormatButton icon="format-bold" label="Bold" onPress={() => format('bold')} /><FormatButton icon="format-italic" label="Italic" onPress={() => format('italic')} /><FormatButton icon="format-list-bulleted" label="Bullets" onPress={() => format('bullet')} /><FormatButton icon="format-list-numbered" label="Numbered list" onPress={() => format('numbered')} /></View></View>
           <TextInput ref={bodyInput} multiline value={body} selection={selection} onSelectionChange={(event) => setSelection(event.nativeEvent.selection)} onChangeText={setBody} placeholder="Start writing…" placeholderTextColor={colors.textSecondary} textAlignVertical="top" style={[styles.bodyInput, imageUris.length > 0 && styles.bodyInputWithImage, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.outline }]} />
           {note && <Pressable onPress={remove} style={styles.deleteNote}><AppIcon name="delete-outline" size={20} tintColor={colors.error} /><Text style={{ color: colors.error, fontWeight: '800' }}>Delete note</Text></Pressable>}
         </ScrollView>
@@ -155,20 +171,29 @@ function NoteGallery({ images, label, onRemove }: { images: string[]; label: str
   const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeUri = images[activeIndex ?? 0];
-  return <><ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>{images.map((uri, index) => <View key={uri} style={styles.galleryItem}><NoteImage uri={uri} label={`${label} ${index + 1}`} onView={() => setActiveIndex(index)} />{onRemove && <Pressable accessibilityLabel={`Remove image ${index + 1}`} onPress={() => onRemove(uri)} style={[styles.removeImageButton, { backgroundColor: colors.surface }]}><AppIcon name="close" size={18} tintColor={colors.error} /></Pressable>}</View>)}</ScrollView>{activeIndex !== null && <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => setActiveIndex(null)}><View style={styles.imageViewer}><View style={styles.imageViewerBackdrop} /><Pressable accessibilityLabel="Close image" onPress={() => setActiveIndex(null)} style={styles.imageViewerClose}><AppIcon name="close" size={28} tintColor="#FFFFFF" /></Pressable><FlatList style={styles.imageViewerList} data={images} horizontal pagingEnabled initialScrollIndex={activeIndex} getItemLayout={(_, index) => ({ length: width, offset: width * index, index })} keyExtractor={(uri) => uri} onMomentumScrollEnd={(event) => setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / width))} showsHorizontalScrollIndicator={false} renderItem={({ item, index }) => <View style={[styles.imageViewerPage, { width }]}><ViewerImage uri={item} label={`${label} ${index + 1}`} /></View>} /><Text style={styles.imageViewerCounter}>{activeIndex + 1} / {images.length}</Text><Pressable accessibilityLabel="Copy image" onPress={() => copyImage(activeUri)} style={styles.imageViewerCopy}><AppIcon name="content-copy" size={20} tintColor="#FFFFFF" /><Text style={styles.imageViewerCopyText}>Copy</Text></Pressable></View></Modal>}</>;
+  return <><ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>{images.map((uri, index) => <View key={uri} style={styles.galleryItem}><NoteImage uri={uri} label={`${label} ${index + 1}`} onView={() => setActiveIndex(index)} />{onRemove && <Pressable accessibilityLabel={`Remove image ${index + 1}`} onPress={() => onRemove(uri)} style={[styles.removeImageButton, { backgroundColor: colors.surface }]}><AppIcon name="close" size={18} tintColor={colors.error} /></Pressable>}</View>)}</ScrollView>{activeIndex !== null && <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => setActiveIndex(null)}><View style={styles.imageViewer}><Pressable accessibilityLabel="Close image" onPress={() => setActiveIndex(null)} style={styles.imageViewerBackdrop} /><Pressable accessibilityLabel="Close image" onPress={() => setActiveIndex(null)} style={styles.imageViewerClose}><AppIcon name="close" size={28} tintColor="#FFFFFF" /></Pressable><FlatList style={styles.imageViewerList} data={images} horizontal pagingEnabled initialScrollIndex={activeIndex} getItemLayout={(_, index) => ({ length: width, offset: width * index, index })} keyExtractor={(uri) => uri} onMomentumScrollEnd={(event) => setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / width))} showsHorizontalScrollIndicator={false} renderItem={({ item, index }) => <Pressable onPress={() => setActiveIndex(null)} style={[styles.imageViewerPage, { width }]}><Pressable onPress={(event) => event.stopPropagation()} style={styles.imageViewerMedia}><ViewerImage uri={item} label={`${label} ${index + 1}`} /></Pressable></Pressable>} /><Text style={styles.imageViewerCounter}>{activeIndex + 1} / {images.length}</Text><View style={styles.imageViewerActions}><Pressable accessibilityLabel="Copy image" onPress={() => copyImage(activeUri)} style={styles.imageViewerAction}><AppIcon name="content-copy" size={20} tintColor="#FFFFFF" /><Text style={styles.imageViewerActionText}>Copy</Text></Pressable><Pressable accessibilityLabel="Share image" onPress={() => shareImage(activeUri)} style={styles.imageViewerAction}><AppIcon name="share" size={20} tintColor="#FFFFFF" /><Text style={styles.imageViewerActionText}>Share</Text></Pressable></View></View></Modal>}</>;
 }
 
 function ViewerImage({ uri, label }: { uri: string; label: string }) {
-  if (Platform.OS === 'web') return createElement('img', { src: uri, alt: label, draggable: false, style: { width: '100%', height: '80%', objectFit: 'contain' } });
+  if (Platform.OS === 'web') return createElement('img', { src: uri, alt: label, draggable: false, style: { width: '100%', height: '100%', objectFit: 'contain' } });
   return <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" style={styles.imageViewerImage} />;
 }
 
 async function copyImage(uri: string) {
   try {
     await copyNoteImage(uri);
-    Alert.alert('Image copied', 'The image is ready to paste.');
+    if (Platform.OS !== 'android') Alert.alert('Image copied', 'The image is ready to paste.');
   } catch {
     Alert.alert('Copy failed', 'The image could not be copied.');
+  }
+}
+
+async function shareImage(uri: string) {
+  try {
+    if (!await Sharing.isAvailableAsync()) throw new Error();
+    await Sharing.shareAsync(uri, { dialogTitle: 'Share image', mimeType: 'image/*' });
+  } catch {
+    Alert.alert('Sharing unavailable', 'This image cannot be shared on this device or browser.');
   }
 }
 
