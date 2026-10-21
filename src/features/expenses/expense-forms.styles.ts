@@ -12,4 +12,6 @@ export const styles = StyleSheet.create({
   methodRow: { flexDirection: 'row', gap: Spacing.md },
   methodButton: { flex: 1, minHeight: 52, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   methodHint: { fontSize: 11, lineHeight: 16, marginTop: Spacing.sm },
+  sheetContent: { flexGrow: 1, paddingBottom: 120, gap: Spacing.xl },
+  sheetScroll: { flex: 1 },
 });

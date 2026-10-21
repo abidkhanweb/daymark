@@ -14,6 +14,21 @@ export const Colors = {
     error: '#FFB4AB', success: '#A7D78B',
   },
 } as const;
+export const TabAccents = {
+  today: {
+    light: { background: '#F7FBFA', backgroundElement: '#E4F1EE', backgroundSelected: '#CDEDE7', surfaceVariant: '#E4F1EE', primary: '#216A61', primaryContainer: '#CDEDE7', outline: '#D1E3DF' },
+    dark: { background: '#101716', backgroundElement: '#1A2926', backgroundSelected: '#174E48', surfaceVariant: '#243B37', primary: '#8FD5CA', primaryContainer: '#174E48', outline: '#38514C' },
+  },
+  tasks: {
+    light: { background: '#F8FBF7', backgroundElement: '#E8F1E8', backgroundSelected: '#D8EBDD', surfaceVariant: '#E8F1E8', primary: '#3F6650', primaryContainer: '#D8EBDD', outline: '#D6E3D7' },
+    dark: { background: '#111612', backgroundElement: '#1D281F', backgroundSelected: '#294A36', surfaceVariant: '#2D3D31', primary: '#A7D8B7', primaryContainer: '#294A36', outline: '#405445' },
+  },
+  notes: {
+    light: { background: '#FFFCF5', backgroundElement: '#FFF3D6', backgroundSelected: '#FFE29A', surfaceVariant: '#FFF3D6', primary: '#E88400', primaryContainer: '#FFE29A', outline: '#E8DCC5' },
+    dark: { background: '#17130D', backgroundElement: '#2B2215', backgroundSelected: '#614100', surfaceVariant: '#3A2D19', primary: '#FFB74D', primaryContainer: '#614100', outline: '#594A32' },
+  },
+  expenses: { light: { primary: '#6750A4', primaryContainer: '#EADDFF' }, dark: { primary: '#D0BCFF', primaryContainer: '#4F378B' } },
+} as const;
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({

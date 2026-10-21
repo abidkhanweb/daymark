@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   },
   progressCopy: { flex: 1, minWidth: 0 },
   progressEyebrow: {
-    color: "#EADDFF",
+    color: "#D9F3EE",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.2,
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     marginRight: 10,
   },
   progressCaption: {
-    color: "#EADDFF",
+    color: "#D9F3EE",
     fontSize: 13,
     lineHeight: 19,
     marginTop: 5,
@@ -72,7 +72,7 @@ export const styles = StyleSheet.create({
     height: 82,
     borderRadius: 41,
     borderWidth: 8,
-    borderColor: "#CDB7FF",
+    borderColor: "#9AD9CE",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",

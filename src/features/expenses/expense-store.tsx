@@ -3,8 +3,9 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 
 import { createDemoExpenseData } from '@/features/demo/demo-data';
 import { useDemoMode } from '@/features/demo/demo-mode';
+import { useTrash } from '@/features/trash/trash-store';
 
-import { AccountKind, ExpenseData, initialExpenseData, LedgerEntry, LedgerEntryInput } from './model';
+import { AccountKind, ExpenseData, initialExpenseData, LedgerAccount, LedgerEntry, LedgerEntryInput } from './model';
 
 const STORAGE_KEY = 'daymark.expenses.v1';
 type StoredEntry = Omit<LedgerEntry, 'accountId'> & { accountId?: string; personId?: string };
@@ -25,6 +26,8 @@ type ExpenseStore = ExpenseData & {
   addEntries: (inputs: LedgerEntryInput[]) => void;
   updateEntry: (id: string, input: LedgerEntryInput) => void;
   deleteEntry: (id: string) => void;
+  restoreAccount: (account: LedgerAccount, entries: LedgerEntry[]) => void;
+  restoreEntry: (entry: LedgerEntry) => void;
   importData: (data: Partial<ExpenseData>) => void;
 };
 
@@ -32,6 +35,7 @@ const Context = createContext<ExpenseStore | null>(null);
 
 export function ExpenseProvider({ children }: PropsWithChildren) {
   const { isDemo } = useDemoMode();
+  const { moveToTrash } = useTrash();
   const [personalData, setPersonalData] = useState(initialExpenseData);
   const [demoData, setDemoData] = useState(createDemoExpenseData);
   const [hydrated, setHydrated] = useState(false);
@@ -59,19 +63,29 @@ export function ExpenseProvider({ children }: PropsWithChildren) {
       setData((current) => ({ ...current, accounts: [...current.accounts, { id, name: trimmed, kind, createdAt: new Date().toISOString() }] }));
       return id;
     },
-    deleteAccount: (id) => setData((current) => ({
-      accounts: current.accounts.filter((account) => account.id !== id),
-      entries: current.entries.filter((entry) => entry.accountId !== id),
-    })),
+    deleteAccount: (id) => {
+      const account = data.accounts.find((item) => item.id === id);
+      if (!account) return;
+      const accountEntries = data.entries.filter((entry) => entry.accountId === id);
+      if (!isDemo) moveToTrash({ kind: 'account', label: account.name, context: account.kind === 'daily' ? 'Daily account' : 'Person', data: { account, entries: accountEntries } });
+      setData((current) => ({ accounts: current.accounts.filter((item) => item.id !== id), entries: current.entries.filter((entry) => entry.accountId !== id) }));
+    },
     addEntry: (input) => setData((current) => ({ ...current, entries: [{ ...input, id: `${Date.now()}` } as LedgerEntry, ...current.entries] })),
     addEntries: (inputs) => setData((current) => {
       const timestamp = Date.now();
       return { ...current, entries: [...inputs.map((input, index) => ({ ...input, id: `${timestamp}-${index}` } as LedgerEntry)), ...current.entries] };
     }),
     updateEntry: (id, input) => setData((current) => ({ ...current, entries: current.entries.map((entry) => entry.id === id ? { ...entry, ...input } : entry) })),
-    deleteEntry: (id) => setData((current) => ({ ...current, entries: current.entries.filter((entry) => entry.id !== id) })),
+    deleteEntry: (id) => {
+      const entry = data.entries.find((item) => item.id === id);
+      if (!entry) return;
+      if (!isDemo) moveToTrash({ kind: 'entry', label: entry.note || entry.flow, context: data.accounts.find((account) => account.id === entry.accountId)?.name ?? 'Expense', data: entry });
+      setData((current) => ({ ...current, entries: current.entries.filter((item) => item.id !== id) }));
+    },
+    restoreAccount: (account, entries) => setData((current) => ({ accounts: [...current.accounts.filter((item) => item.id !== account.id), account], entries: [...entries, ...current.entries.filter((entry) => entry.accountId !== account.id)] })),
+    restoreEntry: (entry) => setData((current) => current.accounts.some((account) => account.id === entry.accountId) ? { ...current, entries: [entry, ...current.entries.filter((item) => item.id !== entry.id)] } : current),
     importData: (input) => setPersonalData(migrateExpenseData(input)),
-  }), [data, hydrated, setData]);
+  }), [data, hydrated, isDemo, moveToTrash, setData]);
 
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }

@@ -1,6 +1,6 @@
 import { styles } from './task-form.styles';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -62,7 +62,7 @@ export function TaskForm({ task, visible, onClose }: Props) {
   const remove = () => {
     if (!task) return;
     const confirmDelete = async () => { await deleteTask(task.id); onClose(); };
-    confirmAction('Delete task?', `“${task.title}” will be permanently deleted.`, () => void confirmDelete());
+    confirmAction('Delete task?', `“${task.title}” will move to the recycle bin.`, () => void confirmDelete());
   };
   const savePreset = () => {
     if (!title.trim()) { Alert.alert('Add a title first', 'A preset needs a task title.'); return; }
@@ -71,9 +71,10 @@ export function TaskForm({ task, visible, onClose }: Props) {
   };
 
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.safe}>
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <View style={styles.header}><View><Text style={[styles.eyebrow, { color: colors.primary }]}>{task ? 'EDIT TASK' : 'NEW TASK'}</Text><Text style={[styles.heading, { color: colors.text }]}>{task ? 'Update task' : 'Plan the next action'}</Text></View><Pressable accessibilityLabel="Close" onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceVariant }]}><AppIcon name="close" tintColor={colors.text} /></Pressable></View>
-      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+      <ScrollView automaticallyAdjustKeyboardInsets contentContainerStyle={styles.form} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled">
         <View style={styles.searchWrap}>
           <View style={[styles.searchInputWrap, { backgroundColor: colors.surface, borderColor: showSuggestions ? colors.primary : colors.outline }]}><AppIcon name="search" tintColor={colors.textSecondary} /><TextInput autoFocus placeholder="Search templates or type a custom task" placeholderTextColor={colors.textSecondary} value={title} onFocus={() => setShowSuggestions(true)} onChangeText={(value) => { setTitle(value); setShowSuggestions(true); }} style={[styles.titleInput, { color: colors.text }]} /></View>
           {showSuggestions && <View style={[styles.suggestions, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
@@ -98,6 +99,7 @@ export function TaskForm({ task, visible, onClose }: Props) {
       </ScrollView>
       <Pressable disabled={saving} onPress={submit} style={({ pressed }) => [styles.save, { backgroundColor: colors.primary, opacity: pressed || saving ? .7 : 1 }]}><Text style={styles.saveText}>{saving ? 'Saving…' : task ? 'Save changes' : 'Create task'}</Text><AppIcon name="arrow-forward" tintColor="#FFFFFF" size={20} /></Pressable>
     </SafeAreaView>
+    </KeyboardAvoidingView>
   </Modal>;
 }
 

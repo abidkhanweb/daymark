@@ -3,9 +3,11 @@ import { removeRecurringDuplicates } from './task-completion';
 import { normalizeNoteImageUris } from '../notes/note-image-utils';
 
 export function migrateData(input: Partial<AppData>): AppData {
-  const categories = input.categories?.length ? input.categories : initialData.categories;
+  const migrateColor = (color: string) => color.toLocaleUpperCase() === '#6750A4' ? '#426A8C' : color;
+  const categories = (input.categories?.length ? input.categories : initialData.categories).map((category) => ({ ...category, color: migrateColor(category.color) }));
   const migratedFolders = (input.folders?.length ? input.folders : initialData.folders).map((folder) => ({
     ...folder,
+    color: migrateColor(folder.color),
     categoryId: folder.categoryId ?? (folder.id === 'work' ? 'work' : 'life'),
   }));
   const folders = migratedFolders.some((folder) => folder.id === 'uncategorized') ? migratedFolders : [initialData.folders[0], ...migratedFolders];

@@ -37,6 +37,7 @@ export type Note = {
   imageUris: string[];
   imageUri?: string;
   updatedAt: string;
+  favorite?: boolean;
 };
 
 export type TaskDraft = Omit<Task, 'id' | 'completed' | 'notificationId' | 'notificationIds'> & {
@@ -80,12 +81,12 @@ export const initialData: AppData = {
   customTemplates: [],
   hiddenTemplateTitles: [],
   categories: [
-    { id: 'work', name: 'Work', color: '#6750A4' },
+    { id: 'work', name: 'Work', color: '#426A8C' },
     { id: 'life', name: 'Life', color: '#006A6A' },
   ],
   folders: [
     { id: 'uncategorized', name: 'Uncategorized', color: '#79747E', icon: 'folder', categoryId: 'life' },
-    { id: 'work', name: 'Projects', color: '#6750A4', icon: 'work', categoryId: 'work' },
+    { id: 'work', name: 'Projects', color: '#426A8C', icon: 'work', categoryId: 'work' },
     { id: 'personal', name: 'Personal', color: '#006A6A', icon: 'person', categoryId: 'life' },
     { id: 'home', name: 'Home', color: '#9C4146', icon: 'home', categoryId: 'life' },
   ],

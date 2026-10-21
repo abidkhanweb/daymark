@@ -50,6 +50,7 @@ export default function SettingsScreen() {
     </View>
 
     <View style={styles.section}><Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APP</Text>
+      {!isDemo && <SettingRow icon="delete-outline" title="Recycle bin" text="Restore or permanently delete removed items." onPress={() => router.push('/trash')} />}
       <SettingRow icon="system-update-alt" title={busy ? 'Please wait…' : 'Install latest update'} text="Download a compatible EAS update and restart DayMark." disabled={busy} onPress={() => run(async () => {
         const result = await checkAndInstallUpdate();
         if (result === 'current') Alert.alert('DayMark is up to date');

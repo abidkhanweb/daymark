@@ -5,6 +5,7 @@ import { addTaskToCalendar, cancelTaskReminder, configureReminders, scheduleTask
 import { removeNoteImage } from '@/services/note-images';
 import { createDemoTaskData } from '@/features/demo/demo-data';
 import { useDemoMode } from '@/features/demo/demo-mode';
+import { useTrash } from '@/features/trash/trash-store';
 
 import { AppData, CustomTaskTemplate, initialData, Note, Task, TaskDraft, TaskTemplate, taskTemplates } from './model';
 import { completeRecurringTask, setTaskCompleted } from './task-completion';
@@ -29,6 +30,11 @@ type TaskStore = AppData & {
   addNote: (note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUris'>) => void;
   updateNote: (id: string, note: Pick<Note, 'title' | 'body' | 'folderId' | 'imageUris'>) => void;
   deleteNote: (id: string) => void;
+  toggleNoteFavorite: (id: string) => void;
+  restoreTask: (task: Task) => Promise<void>;
+  restoreNote: (note: Note) => void;
+  restoreFolder: (folder: AppData['folders'][number]) => void;
+  restoreCategory: (category: AppData['categories'][number]) => void;
   setProfile: (name: string, nickname: string) => void;
   importData: (data: Partial<AppData>) => Promise<void>;
 };
@@ -37,6 +43,7 @@ const Context = createContext<TaskStore | null>(null);
 
 export function TaskProvider({ children }: PropsWithChildren) {
   const { isDemo } = useDemoMode();
+  const { moveToTrash } = useTrash();
   const [personalData, setPersonalData] = useState(initialData);
   const [demoData, setDemoData] = useState(createDemoTaskData);
   const [hydrated, setHydrated] = useState(false);
@@ -96,6 +103,7 @@ export function TaskProvider({ children }: PropsWithChildren) {
       const task = data.tasks.find((item) => item.id === id);
       if (!task) return;
       if (!isDemo) await cancelTaskReminder(task.notificationIds).catch(() => undefined);
+      if (!isDemo) moveToTrash({ kind: 'task', label: task.title, context: data.folders.find((folder) => folder.id === task.folderId)?.name ?? 'Uncategorized', data: task });
       setData((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== id) }));
     },
     toggleTask: async (id) => {
@@ -154,7 +162,7 @@ export function TaskProvider({ children }: PropsWithChildren) {
         folders: [...current.folders, {
           id: `${Date.now()}`,
           name: name.trim(),
-          color: ['#6750A4', '#006A6A', '#9C4146', '#536D22'][current.folders.length % 4],
+          color: ['#426A8C', '#006A6A', '#9C4146', '#536D22'][current.folders.length % 4],
           icon: 'folder',
           categoryId: current.categories.some((category) => category.id === categoryId) ? categoryId : current.categories[0].id,
         }],
@@ -166,27 +174,27 @@ export function TaskProvider({ children }: PropsWithChildren) {
       if (!normalized || data.categories.some((category) => category.name.toLocaleLowerCase() === normalized)) return false;
       setData((current) => ({
         ...current,
-        categories: [...current.categories, { id: `${Date.now()}`, name: name.trim(), color: ['#6750A4', '#006A6A', '#9C4146', '#536D22'][current.categories.length % 4] }],
+        categories: [...current.categories, { id: `${Date.now()}`, name: name.trim(), color: ['#426A8C', '#006A6A', '#9C4146', '#536D22'][current.categories.length % 4] }],
       }));
       return true;
     },
-    deleteCategory: (id) => setData((current) => {
-      const category = current.categories.find((item) => item.id === id);
-      if (!category || category.name.trim().toLocaleLowerCase() === 'general') return current;
-      const remaining = current.categories.filter((category) => category.id !== id);
-      const fallback = remaining[0] ?? { id: `category-${Date.now()}`, name: 'General', color: '#6750A4' };
-      const categories = remaining.length ? remaining : [fallback];
-      return {
-        ...current,
-        categories,
-        folders: current.folders.map((folder) => folder.categoryId === id ? { ...folder, categoryId: fallback.id } : folder),
-      };
-    }),
+    deleteCategory: (id) => {
+      const category = data.categories.find((item) => item.id === id);
+      if (!category || category.name.trim().toLocaleLowerCase() === 'general') return;
+      if (!isDemo) moveToTrash({ kind: 'category', label: category.name, context: 'Task category', data: category });
+      setData((current) => {
+        const remaining = current.categories.filter((item) => item.id !== id);
+        const fallback = remaining[0] ?? { id: `category-${Date.now()}`, name: 'General', color: '#426A8C' };
+        return { ...current, categories: remaining.length ? remaining : [fallback], folders: current.folders.map((folder) => folder.categoryId === id ? { ...folder, categoryId: fallback.id } : folder) };
+      });
+    },
     deleteFolder: async (id, deleteTasks) => {
       const folder = data.folders.find((item) => item.id === id);
       if (!folder || folder.id === 'uncategorized' || folder.name.trim().toLocaleLowerCase() === 'general') return;
       const affected = data.tasks.filter((task) => task.folderId === id);
       if (!isDemo && deleteTasks) await Promise.all(affected.map((task) => cancelTaskReminder(task.notificationIds).catch(() => undefined)));
+      if (!isDemo) moveToTrash({ kind: 'folder', label: folder.name, context: data.categories.find((category) => category.id === folder.categoryId)?.name ?? 'Category', data: folder });
+      if (!isDemo && deleteTasks) affected.forEach((task) => moveToTrash({ kind: 'task', label: task.title, context: folder.name, data: task }));
       setData((current) => ({
         ...current,
         folders: current.folders.filter((folder) => folder.id !== id),
@@ -226,12 +234,23 @@ export function TaskProvider({ children }: PropsWithChildren) {
       }));
     },
     deleteNote: (id) => {
-      data.notes.find((note) => note.id === id)?.imageUris.forEach(removeNoteImage);
+      const note = data.notes.find((item) => item.id === id);
+      if (!note) return;
+      if (!isDemo) moveToTrash({ kind: 'note', label: note.title, context: data.folders.find((folder) => folder.id === note.folderId)?.name ?? 'Uncategorized', data: note });
       setData((current) => ({
         ...current,
         notes: current.notes.filter((note) => note.id !== id),
       }));
     },
+    toggleNoteFavorite: (id) => setData((current) => ({ ...current, notes: current.notes.map((note) => note.id === id ? { ...note, favorite: !note.favorite } : note) })),
+    restoreTask: async (task) => {
+      const restored = { ...task, folderId: data.folders.some((folder) => folder.id === task.folderId) ? task.folderId : 'uncategorized', notificationIds: [] };
+      const notificationIds = !isDemo && !restored.completed ? await scheduleTaskReminder(restored).catch(() => []) : [];
+      setData((current) => ({ ...current, tasks: [{ ...restored, notificationIds }, ...current.tasks.filter((item) => item.id !== task.id)] }));
+    },
+    restoreNote: (note) => setData((current) => ({ ...current, notes: [{ ...note, folderId: current.folders.some((folder) => folder.id === note.folderId) ? note.folderId : 'uncategorized' }, ...current.notes.filter((item) => item.id !== note.id)] })),
+    restoreFolder: (folder) => setData((current) => ({ ...current, folders: [...current.folders.filter((item) => item.id !== folder.id), { ...folder, categoryId: current.categories.some((category) => category.id === folder.categoryId) ? folder.categoryId : current.categories[0].id }] })),
+    restoreCategory: (category) => setData((current) => ({ ...current, categories: [...current.categories.filter((item) => item.id !== category.id), category] })),
     setProfile: (name, nickname) => setData((current) => ({
       ...current,
       profileName: name.trim(),
@@ -248,7 +267,7 @@ export function TaskProvider({ children }: PropsWithChildren) {
       }));
       setPersonalData({ ...imported, tasks });
     },
-  }), [data, hydrated, isDemo, personalData.tasks, setData]);
+  }), [data, hydrated, isDemo, moveToTrash, personalData.tasks, setData]);
 
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }

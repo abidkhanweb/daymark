@@ -1,11 +1,9 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const colors = useAppTheme();
 
   return (
     <NativeTabs
@@ -34,7 +32,6 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} md="account_balance_wallet" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="settings" hidden />
     </NativeTabs>
   );
 }
